@@ -34,6 +34,7 @@ pip install -r requirements.txt
 - `visualizer.py`: Module responsible for rendering the neural network and updating its visualization in real time.
 - `model.h5`: Pre-trained MNIST model in Keras HDF5 format (fully connected).
 - `requirements.txt`: List of Python dependencies required to run the project.
+- `model_metrics.py`: An independent module used to measure some model metrics like accuracy, averages, and the generation of the confusion matrix.
 
 ## Notes
 
