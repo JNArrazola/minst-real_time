@@ -4,3 +4,5 @@ numpy
 keras
 scipy
 matplotlib
+scikit-learn
+seaborn
