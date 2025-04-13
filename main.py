@@ -5,11 +5,12 @@ from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushBut
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QImage
 from PyQt6.QtCore import Qt, QPoint
 from scipy.ndimage import center_of_mass, shift
+from src.visualizer import NeuralNetworkVisualizer  
 
 class DrawingCanvas(QWidget):
     def __init__(self):
         super().__init__()
-        self.setFixedSize(280, 280)  
+        self.setFixedSize(280, 280)
         self.canvas = QPixmap(self.size())
         self.canvas.fill(Qt.GlobalColor.white)
         self.last_point = QPoint()
@@ -47,13 +48,13 @@ class DrawingCanvas(QWidget):
         ptr = image.bits()
         ptr.setsize(image.width() * image.height())
         arr = np.frombuffer(ptr, np.uint8).reshape((280, 280))
-        arr = arr / 255.0  
+        arr = arr / 255.0
         return arr
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Reconocedor de Números MNIST - Precisión Mejorada")
+        self.setWindowTitle("Reconocedor de Números MNIST - Visualización Dinámica")
 
         self.canvas = DrawingCanvas()
         self.label = QLabel("Dibuja un número")
@@ -70,12 +71,16 @@ class MainWindow(QWidget):
 
         self.model = tf.keras.models.load_model("model.h5")
 
+        self.visualizer = NeuralNetworkVisualizer()
+
+        self.weights_input_hidden = self.model.layers[1].get_weights()[0]  # (784, 128)
+        self.weights_hidden_output = self.model.layers[2].get_weights()[0]  # (128, 10)
+
     def predict_digit(self):
         raw = self.canvas.get_image()
         resized = tf.image.resize(raw[..., np.newaxis], (28, 28)).numpy().squeeze()
 
         img = 1.0 - resized
-
         img[img < 0.2] = 0.0
 
         cy, cx = center_of_mass(img)
@@ -83,12 +88,26 @@ class MainWindow(QWidget):
         shift_x = int(14 - cx)
         img = shift(img, [shift_y, shift_x], mode='constant')
 
-        img = img.reshape(1, 28, 28, 1)
+        img_reshaped = img.reshape(1, 28, 28, 1)
+        flat_input = img.reshape(1, 784)
 
-        prediction = self.model.predict(img, verbose=0)[0]
-        digit = np.argmax(prediction)
-        confidence = prediction[digit]
-        self.label.setText(f"Parece un: {digit} ({confidence * 100:.1f}%)")
+        hidden_raw = flat_input @ self.weights_input_hidden
+        hidden_act = tf.nn.relu(hidden_raw).numpy()[0]
+
+        output_raw = hidden_act @ self.weights_hidden_output
+        output_softmax = tf.nn.softmax(output_raw).numpy()
+
+        predicted = np.argmax(output_softmax)
+        confidence = output_softmax[predicted]  # ✅ corregido
+        self.label.setText(f"Parece un: {predicted} ({confidence * 100:.1f}%)")
+
+        self.visualizer.update_view(
+            img,
+            hidden_act,
+            output_softmax,  # ✅ sin [0]
+            self.weights_input_hidden,
+            self.weights_hidden_output
+        )
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
