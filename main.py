@@ -154,11 +154,18 @@ class MainWindow(QWidget):
         img = 1.0 - resized
         img[img < 0.2] = 0.0
 
-        # Centrar la imagen
+        if np.sum(img) == 0:
+            return  #
+
         cy, cx = center_of_mass(img)
+
+        if np.isnan(cy) or np.isnan(cx):
+            return
+
         shift_y = int(14 - cy)
         shift_x = int(14 - cx)
         img = shift(img, [shift_y, shift_x], mode='constant')
+
 
         img_reshaped = img.reshape(1, 28, 28, 1) 
         flat_input = img.reshape(1, 784)
